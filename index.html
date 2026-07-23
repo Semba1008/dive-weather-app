@@ -13,7 +13,7 @@
 
   <header class="hero">
     <div class="hero-inner">
-      <div class="hero-badge">🤿 DIVE WEATHER</div>
+      <div class="hero-badge">DIVE WEATHER</div>
       <h1>ダイビング<br class="br-mobile">天気チェッカー</h1>
       <p class="subtitle">地名を入力するだけで、風・波・気温からその日のダイビング可否をチェック</p>
     </div>
@@ -32,14 +32,14 @@
       <div class="field">
         <label for="place-input">地名</label>
         <div class="input-icon-wrap">
-          <span class="input-icon">📍</span>
+          <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-7.5 7-12A7 7 0 0 0 5 9c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.3"/></svg>
           <input id="place-input" type="text" placeholder="例: 伊豆、慶良間、石垣島..." required>
         </div>
       </div>
       <div class="field field-date">
         <label for="date-input">日付</label>
         <div class="input-icon-wrap">
-          <span class="input-icon">📅</span>
+          <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="8" y1="3.5" x2="8" y2="7"/><line x1="16" y1="3.5" x2="16" y2="7"/></svg>
           <input id="date-input" type="date">
         </div>
       </div>
@@ -53,18 +53,20 @@
     <main id="result" class="result" hidden>
 
       <section id="verdict" class="verdict">
-        <div class="verdict-icon" id="verdict-icon"></div>
+        <div class="verdict-badge">
+          <span class="verdict-icon" id="verdict-icon"></span>
+        </div>
         <div class="verdict-body">
           <div class="verdict-place" id="verdict-place"></div>
           <div class="verdict-label" id="verdict-label"></div>
-          <div class="verdict-reason" id="verdict-reason"></div>
+          <div class="verdict-chips" id="verdict-chips"></div>
         </div>
       </section>
 
       <section class="tiles" id="tiles"></section>
 
       <section class="chart-section card-section">
-        <h2><span class="section-icon">📈</span>時間帯別の風速・波高</h2>
+        <h2>時間帯別の風速・波高</h2>
         <div class="chart-legend" id="chart-legend"></div>
         <div class="chart-wrap">
           <svg id="wind-chart" class="trend-chart" viewBox="0 0 720 160" preserveAspectRatio="none"></svg>
@@ -78,22 +80,8 @@
       </section>
 
       <section class="hourly-section card-section">
-        <h2><span class="section-icon">🕒</span>時間別詳細</h2>
-        <div class="table-scroll">
-          <table id="hourly-table" class="hourly-table">
-            <thead>
-              <tr>
-                <th>時刻</th>
-                <th>天気</th>
-                <th>気温</th>
-                <th>風速</th>
-                <th>波高</th>
-                <th>降水確率</th>
-              </tr>
-            </thead>
-            <tbody id="hourly-body"></tbody>
-          </table>
-        </div>
+        <h2>時間別詳細</h2>
+        <div class="hour-strip" id="hour-strip"></div>
       </section>
 
     </main>

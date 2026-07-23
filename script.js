@@ -11,17 +11,42 @@
   };
   const THUNDER_CODES = new Set([95, 96, 99]);
 
+  const CLOUD_SHAPE = `<circle cx="9" cy="12.8" r="3.2"/><circle cx="13.2" cy="10.5" r="4"/><circle cx="16.4" cy="13" r="2.6"/><rect x="6" y="13" width="12.6" height="4.5" rx="2.25"/>`;
+
+  const ICONS = {
+    sun: `<circle cx="12" cy="12" r="4.3"/><rect x="11.25" y="1" width="1.5" height="3.3" rx="0.75"/><rect x="11.25" y="19.7" width="1.5" height="3.3" rx="0.75"/><rect x="1" y="11.25" width="3.3" height="1.5" rx="0.75"/><rect x="19.7" y="11.25" width="3.3" height="1.5" rx="0.75"/><rect x="11.25" y="1" width="1.5" height="3.3" rx="0.75" transform="rotate(45 12 12)"/><rect x="11.25" y="1" width="1.5" height="3.3" rx="0.75" transform="rotate(135 12 12)"/><rect x="11.25" y="1" width="1.5" height="3.3" rx="0.75" transform="rotate(225 12 12)"/><rect x="11.25" y="1" width="1.5" height="3.3" rx="0.75" transform="rotate(315 12 12)"/>`,
+    cloud: CLOUD_SHAPE,
+    cloudSun: `<circle cx="7.3" cy="6.8" r="2.6"/><rect x="6.55" y="1" width="1.5" height="2.6" rx="0.75" transform="rotate(0 7.3 6.8)"/>${CLOUD_SHAPE}`,
+    fog: `<rect x="3" y="6" width="18" height="2" rx="1"/><rect x="6" y="10.3" width="15" height="2" rx="1"/><rect x="3" y="14.6" width="18" height="2" rx="1"/><rect x="7" y="18.9" width="12" height="2" rx="1"/>`,
+    cloudRain: `${CLOUD_SHAPE}<rect x="8.35" y="18" width="1.3" height="3.6" rx="0.65" transform="rotate(15 9 19.8)"/><rect x="12.35" y="18" width="1.3" height="3.6" rx="0.65" transform="rotate(15 13 19.8)"/><rect x="15.85" y="17.6" width="1.3" height="3.6" rx="0.65" transform="rotate(15 16.5 19.4)"/>`,
+    cloudSnow: `${CLOUD_SHAPE}<circle cx="9" cy="19.3" r="1.1"/><circle cx="13" cy="19.8" r="1.1"/><circle cx="16.6" cy="19.1" r="1.1"/>`,
+    cloudLightning: `${CLOUD_SHAPE}<polygon points="13.2,17 9.6,21.6 12.1,21.6 10.9,24 15.1,19.4 12.4,19.4"/>`,
+    thermometer: `<rect x="10" y="2.5" width="4" height="13.5" rx="2"/><circle cx="12" cy="18.5" r="4"/>`,
+    droplet: `<path d="M12 2.5c3.6 4.4 6.2 7.9 6.2 10.9a6.2 6.2 0 1 1-12.4 0c0-3 2.6-6.5 6.2-10.9z"/>`,
+    wind: `<path d="M3 8h11a2.4 2.4 0 1 0-2.3-3.1"/><path d="M3 12.2h15.2a2.4 2.4 0 1 1-2.3 3.1"/><path d="M3 16.4h9"/>`,
+    waves: `<path d="M2 9.3c1.5-2 3.5-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0"/><path d="M2 15.3c1.5-2 3.5-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0"/>`,
+    checkCircle: `<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6 5-5.6"/>`,
+    alertTriangle: `<path d="M12 3.3l9.3 16.4h-18.6z" stroke-linejoin="round"/><line x1="12" y1="9.7" x2="12" y2="14.3"/><circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none"/>`,
+    alertCircle: `<circle cx="12" cy="12" r="9"/><line x1="12" y1="7.3" x2="12" y2="13"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor" stroke="none"/>`,
+  };
+  const FILLED_ICONS = new Set(["sun", "cloud", "cloudSun", "fog", "cloudRain", "cloudSnow", "cloudLightning", "thermometer", "droplet"]);
+
+  function svgIcon(name, extraClass = "") {
+    const cls = `icon ${FILLED_ICONS.has(name) ? "icon-filled" : ""} ${extraClass}`.trim();
+    return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  }
+
   const WEATHER_INFO = {
-    0: ["☀️", "快晴"], 1: ["🌤️", "晴れ"], 2: ["⛅", "薄曇り"], 3: ["☁️", "曇り"],
-    45: ["🌫️", "霧"], 48: ["🌫️", "霧氷"],
-    51: ["🌦️", "小雨"], 53: ["🌦️", "霧雨"], 55: ["🌧️", "強い霧雨"],
-    56: ["🌧️", "着氷性霧雨"], 57: ["🌧️", "着氷性霧雨"],
-    61: ["🌧️", "小雨"], 63: ["🌧️", "雨"], 65: ["🌧️", "大雨"],
-    66: ["🌧️", "着氷性の雨"], 67: ["🌧️", "着氷性の雨"],
-    71: ["❄️", "小雪"], 73: ["❄️", "雪"], 75: ["❄️", "大雪"], 77: ["❄️", "霧雪"],
-    80: ["🌦️", "にわか雨"], 81: ["🌧️", "にわか雨"], 82: ["🌧️", "激しいにわか雨"],
-    85: ["🌨️", "にわか雪"], 86: ["🌨️", "激しいにわか雪"],
-    95: ["⛈️", "雷雨"], 96: ["⛈️", "雷雨(雹)"], 99: ["⛈️", "雷雨(雹)"],
+    0: ["sun", "快晴"], 1: ["sun", "晴れ"], 2: ["cloudSun", "薄曇り"], 3: ["cloud", "曇り"],
+    45: ["fog", "霧"], 48: ["fog", "霧氷"],
+    51: ["cloudRain", "小雨"], 53: ["cloudRain", "霧雨"], 55: ["cloudRain", "強い霧雨"],
+    56: ["cloudRain", "着氷性霧雨"], 57: ["cloudRain", "着氷性霧雨"],
+    61: ["cloudRain", "小雨"], 63: ["cloudRain", "雨"], 65: ["cloudRain", "大雨"],
+    66: ["cloudRain", "着氷性の雨"], 67: ["cloudRain", "着氷性の雨"],
+    71: ["cloudSnow", "小雪"], 73: ["cloudSnow", "雪"], 75: ["cloudSnow", "大雪"], 77: ["cloudSnow", "霧雪"],
+    80: ["cloudRain", "にわか雨"], 81: ["cloudRain", "にわか雨"], 82: ["cloudRain", "激しいにわか雨"],
+    85: ["cloudSnow", "にわか雪"], 86: ["cloudSnow", "激しいにわか雪"],
+    95: ["cloudLightning", "雷雨"], 96: ["cloudLightning", "雷雨(雹)"], 99: ["cloudLightning", "雷雨(雹)"],
   };
 
   const $ = (id) => document.getElementById(id);
@@ -73,7 +98,7 @@
   }
 
   const STATUS_RANK = { good: 0, warning: 1, critical: 2 };
-  const STATUS_ICON = { good: "✅", warning: "⚠️", critical: "⛔" };
+  const STATUS_ICON = { good: "checkCircle", warning: "alertTriangle", critical: "alertCircle" };
   const STATUS_LABEL = { good: "ダイビング日和", warning: "コンディション注意", critical: "ダイビング非推奨" };
 
   async function fetchJSON(url) {
@@ -146,15 +171,20 @@
     return n == null || Number.isNaN(n) ? "-" : n.toFixed(digits);
   }
 
+  function badgeText(status, textMap) {
+    return status ? textMap[status] : "";
+  }
+
   function badgeHTML(status, textMap) {
     if (!status) return "";
-    return `<span class="tile-badge ${status}">${STATUS_ICON[status]} ${textMap[status]}</span>`;
+    return `<span class="tile-badge ${status}">${svgIcon(STATUS_ICON[status])} ${textMap[status]}</span>`;
   }
 
   function renderTiles(container, tiles) {
     container.innerHTML = tiles.map((t) => `
-      <div class="tile">
-        <div class="tile-label">${t.icon ? `<span>${t.icon}</span>` : ""}${t.label}</div>
+      <div class="tile${t.status ? ` status-${t.status}` : ""}">
+        ${t.icon ? `<div class="tile-icon-chip">${svgIcon(t.icon)}</div>` : ""}
+        <div class="tile-label">${t.label}</div>
         <div class="tile-value">${t.value}</div>
         ${t.sub ? `<div class="tile-sub">${t.sub}</div>` : ""}
         ${t.badge || ""}
@@ -304,20 +334,27 @@
       }
 
       $("verdict").className = `verdict ${overall}`;
-      $("verdict-icon").textContent = STATUS_ICON[overall];
+      $("verdict-icon").innerHTML = svgIcon(STATUS_ICON[overall]);
       $("verdict-place").textContent = `${place.name}${place.admin1 ? " / " + place.admin1 : ""}${place.country ? " / " + place.country : ""} — ${dateStr}`;
       $("verdict-label").textContent = STATUS_LABEL[overall];
-      $("verdict-reason").textContent = reasons.length
-        ? `注意点: ${reasons.join(" / ")}`
-        : (statuses.length ? "風・波・降水いずれも良好な見込みです。" : "この地点では海洋データ（波浪）が取得できませんでした。");
+
+      const chipDefs = [
+        windStatus && { status: windStatus, icon: "wind", text: `風速 ${badgeText(windStatus, { good: "良好", warning: "やや強め", critical: "危険" })}` },
+        waveStatus && { status: waveStatus, icon: "waves", text: `波高 ${badgeText(waveStatus, { good: "穏やか", warning: "やや高い", critical: "高波注意" })}` },
+        precipStatus && { status: precipStatus, icon: "droplet", text: `降水 ${badgeText(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" })}` },
+      ].filter(Boolean);
+      $("verdict-chips").innerHTML = chipDefs.map((c) => `
+        <span class="verdict-chip status-${c.status}">${svgIcon(c.icon)}${c.text}</span>
+      `).join("") || `<span class="verdict-chip">この地点では海洋データ（波浪）が取得できませんでした</span>`;
 
       const tiles = [];
       if (temp) {
-        tiles.push({ icon: "🌡️", label: "気温 (6-18時)", value: `${fmt(temp.min, 0)}〜${fmt(temp.max, 0)}℃` });
+        tiles.push({ icon: "thermometer", label: "気温 (6-18時)", value: `${fmt(temp.min, 0)}〜${fmt(temp.max, 0)}℃` });
       }
       if (wind) {
         tiles.push({
-          icon: "💨",
+          icon: "wind",
+          status: windStatus,
           label: "風速 (6-18時)",
           value: `平均${fmt(wind.avg)} / 最大${fmt(wind.max)} m/s`,
           sub: gust ? `突風 最大${fmt(gust.max)} m/s` : null,
@@ -326,23 +363,25 @@
       }
       if (wave) {
         tiles.push({
-          icon: "🌊",
+          icon: "waves",
+          status: waveStatus,
           label: "波高 (6-18時)",
           value: `平均${fmt(wave.avg)} / 最大${fmt(wave.max)} m`,
           badge: badgeHTML(waveStatus, { good: "穏やか", warning: "やや高い", critical: "高波注意" }),
         });
       } else {
-        tiles.push({ icon: "🌊", label: "波高", value: "データなし", sub: "内陸・湖沼の可能性があります" });
+        tiles.push({ icon: "waves", label: "波高", value: "データなし", sub: "内陸・湖沼の可能性があります" });
       }
       if (swell) {
-        tiles.push({ icon: "〰️", label: "うねり", value: `平均${fmt(swell.avg)} m` });
+        tiles.push({ icon: "waves", label: "うねり", value: `平均${fmt(swell.avg)} m` });
       }
       if (waterTemp) {
-        tiles.push({ icon: "🌡️", label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
+        tiles.push({ icon: "thermometer", label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
       }
       if (precip) {
         tiles.push({
-          icon: "☔",
+          icon: "droplet",
+          status: precipStatus,
           label: "降水確率 (6-18時)",
           value: `最大${Math.round(precip.max)}%`,
           badge: badgeHTML(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" }),
@@ -380,35 +419,37 @@
         <span><span class="dot" style="background:var(--gridline)"></span>網掛け = 日中 (6-18時)</span>
       `;
 
-      // hourly table (every 2h, 6-18)
-      const rows = [];
+      // hourly cards (every 2h, 6-18)
+      const cards = [];
       for (let h = 6; h <= 18; h += 2) {
         const i = times.findIndex((t) => t === `${dateStr}T${String(h).padStart(2, "0")}:00`);
         if (i === -1) continue;
         const code = forecast.hourly.weathercode[i];
-        const info = WEATHER_INFO[code] || ["", "?"];
+        const info = WEATHER_INFO[code] || ["cloud", "?"];
         const w = forecast.hourly.windspeed_10m[i];
         const t = forecast.hourly.temperature_2m[i];
         const p = forecast.hourly.precipitation_probability[i];
-        let waveVal = "-";
+        let waveVal = null;
         if (marine && marineTimes) {
           const mi = marineTimes.findIndex((t2) => t2 === `${dateStr}T${String(h).padStart(2, "0")}:00`);
-          if (mi !== -1) waveVal = fmt(marine.hourly.wave_height[mi]) + "m";
+          if (mi !== -1) waveVal = marine.hourly.wave_height[mi];
         }
         const wStatus = classify(w, THRESH.wind);
         const pStatus = classify(p, THRESH.precip);
-        rows.push(`
-          <tr>
-            <td>${h}:00</td>
-            <td>${info[0]} ${info[1]}</td>
-            <td>${fmt(t, 0)}℃</td>
-            <td class="${wStatus === "critical" ? "flag-critical" : wStatus === "warning" ? "flag-warning" : ""}">${fmt(w)}m/s</td>
-            <td>${waveVal}</td>
-            <td class="${pStatus === "critical" ? "flag-critical" : pStatus === "warning" ? "flag-warning" : ""}">${Math.round(p)}%</td>
-          </tr>
+        const cardStatus = STATUS_RANK[wStatus] > STATUS_RANK[pStatus] ? wStatus : pStatus;
+        cards.push(`
+          <div class="hour-card status-${cardStatus}">
+            <div class="hour-time">${h}:00</div>
+            ${svgIcon(info[0])}
+            <div class="hour-weather-label">${info[1]}</div>
+            <div class="hour-temp">${fmt(t, 0)}℃</div>
+            <div class="hour-metric status-${wStatus}">${svgIcon("wind")}${fmt(w)}m/s</div>
+            <div class="hour-metric">${svgIcon("waves")}${waveVal != null ? fmt(waveVal) + "m" : "-"}</div>
+            <div class="hour-metric status-${pStatus}">${svgIcon("droplet")}${Math.round(p)}%</div>
+          </div>
         `);
       }
-      $("hourly-body").innerHTML = rows.join("");
+      $("hour-strip").innerHTML = cards.join("");
 
       setStatus(null);
       resultEl.hidden = false;
@@ -418,11 +459,13 @@
     }
   }
 
+  const PIN_ICON = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-7.5 7-12A7 7 0 0 0 5 9c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.3"/></svg>`;
+
   function renderCandidates(results) {
     candidatesEl.innerHTML = `<div class="status-area">複数の候補が見つかりました。地点を選択してください:</div>` +
       results.map((r, i) => `
         <button type="button" class="candidate-btn" data-idx="${i}">
-          ${r.name}<span class="cand-sub">${[r.admin1, r.country].filter(Boolean).join(" / ")} (緯度${r.latitude.toFixed(2)}, 経度${r.longitude.toFixed(2)})</span>
+          ${PIN_ICON}<span>${r.name}<span class="cand-sub">${[r.admin1, r.country].filter(Boolean).join(" / ")} (緯度${r.latitude.toFixed(2)}, 経度${r.longitude.toFixed(2)})</span></span>
         </button>
       `).join("");
     candidatesEl.hidden = false;
