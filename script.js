@@ -58,6 +58,11 @@
   const candidatesEl = $("candidates");
   const resultEl = $("result");
 
+  let currentForecast = null;
+  let currentMarine = null;
+  let currentPlace = null;
+  let currentDays = [];
+
   function todayLocalISO(offsetDays = 0) {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
@@ -100,6 +105,32 @@
   const STATUS_RANK = { good: 0, warning: 1, critical: 2 };
   const STATUS_ICON = { good: "checkCircle", warning: "alertTriangle", critical: "alertCircle" };
   const STATUS_LABEL = { good: "ダイビング日和", warning: "コンディション注意", critical: "ダイビング非推奨" };
+  const STATUS_SCORE = { good: 95, warning: 55, critical: 15 };
+  const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function diveScore(windStatus, waveStatus, precipStatus, hasThunder) {
+    const parts = [];
+    if (windStatus) parts.push({ score: STATUS_SCORE[windStatus], weight: 0.35 });
+    if (waveStatus) parts.push({ score: STATUS_SCORE[waveStatus], weight: 0.35 });
+    if (precipStatus) parts.push({ score: STATUS_SCORE[precipStatus], weight: 0.3 });
+    if (!parts.length) return null;
+    const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+    let score = parts.reduce((s, p) => s + (p.score * p.weight) / totalWeight, 0);
+    if (hasThunder) score = Math.min(score, 20);
+    return Math.round(score);
+  }
+
+  function scoreStatus(score) {
+    if (score >= 75) return "good";
+    if (score >= 40) return "warning";
+    return "critical";
+  }
+
+  function formatDateLabel(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    return { md: `${m}/${d}`, weekday: WEEKDAY_LABELS[dow] };
+  }
 
   async function fetchJSON(url) {
     const res = await fetch(url);
@@ -282,60 +313,99 @@
     });
   }
 
-  async function loadWeather(place) {
-    setStatus("天気データを取得中...");
-    resultEl.hidden = true;
+  function dayLabel(dateStr, todayStr) {
+    const { md, weekday } = formatDateLabel(dateStr);
+    return dateStr === todayStr ? "今日" : `${md}(${weekday})`;
+  }
+
+  function computeDaySummary(dateStr) {
+    const times = currentForecast.hourly.time;
+    const dIdx = daytimeIndices(times, dateStr);
+    if (!dIdx.length) return null;
+
+    const temp = stats(dIdx.map((i) => currentForecast.hourly.temperature_2m[i]));
+    const wind = stats(dIdx.map((i) => currentForecast.hourly.windspeed_10m[i]));
+    const gust = stats(dIdx.map((i) => currentForecast.hourly.windgusts_10m[i]));
+    const precip = stats(dIdx.map((i) => currentForecast.hourly.precipitation_probability[i]));
+    const codesInDay = dIdx.map((i) => currentForecast.hourly.weathercode[i]);
+    const hasThunder = codesInDay.some((c) => THUNDER_CODES.has(c));
+    const noonIdx = times.findIndex((t) => t === `${dateStr}T12:00`);
+    const repCode = noonIdx !== -1 ? currentForecast.hourly.weathercode[noonIdx] : codesInDay[Math.floor(codesInDay.length / 2)];
+
+    let wave = null, swell = null, waterTemp = null;
+    if (currentMarine && currentMarine.hourly) {
+      const mIdx = daytimeIndices(currentMarine.hourly.time, dateStr);
+      if (mIdx.length) {
+        wave = stats(mIdx.map((i) => currentMarine.hourly.wave_height[i]));
+        swell = stats(mIdx.map((i) => currentMarine.hourly.swell_wave_height[i]));
+        waterTemp = stats(mIdx.map((i) => currentMarine.hourly.sea_surface_temperature[i]));
+      }
+    }
+
+    const windStatus = classify(wind ? wind.max : null, THRESH.wind);
+    const waveStatus = wave ? classify(wave.max, THRESH.wave) : null;
+    const precipStatus = classify(precip ? precip.max : null, THRESH.precip);
+    const statuses = [windStatus, waveStatus, precipStatus].filter(Boolean);
+    let overall = statuses.reduce((worst, s) => STATUS_RANK[s] > STATUS_RANK[worst] ? s : worst, "good");
+    if (hasThunder) overall = "critical";
+    const score = diveScore(windStatus, waveStatus, precipStatus, hasThunder);
+
+    return {
+      dateStr, temp, wind, gust, precip, hasThunder, repCode,
+      wave, swell, waterTemp, windStatus, waveStatus, precipStatus,
+      overall, score,
+    };
+  }
+
+  function renderWeekStrip(selectedDateStr) {
+    const todayStr = todayLocalISO(0);
+    $("week-strip").innerHTML = currentDays.map((day) => {
+      const info = WEATHER_INFO[day.repCode] || ["cloud", "?"];
+      const score = day.score;
+      const tier = score == null ? null : scoreStatus(score);
+      return `
+        <button type="button" class="week-card${tier ? ` status-${tier}` : ""}${day.dateStr === selectedDateStr ? " is-selected" : ""}" data-date="${day.dateStr}">
+          <div class="week-day">${dayLabel(day.dateStr, todayStr)}</div>
+          ${svgIcon(info[0])}
+          <div class="week-temp">${day.temp ? `${fmt(day.temp.min, 0)}° / ${fmt(day.temp.max, 0)}°` : "-"}</div>
+          <div class="week-precip">${svgIcon("droplet")}${day.precip ? Math.round(day.precip.max) : "-"}%</div>
+          ${score != null ? `
+            <div class="week-score">
+              <div class="week-score-bar"><div class="week-score-fill" style="width:${score}%"></div></div>
+              <div class="week-score-label">${score}%</div>
+            </div>
+          ` : `<div class="week-score-label">データなし</div>`}
+        </button>
+      `;
+    }).join("");
+    $("week-strip").querySelectorAll(".week-card").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        dateInput.value = btn.dataset.date;
+        renderForDate(btn.dataset.date);
+      });
+    });
+  }
+
+  function renderForDate(dateStr) {
+    const day = computeDaySummary(dateStr);
+    if (!day) {
+      setStatus("この日付の予報データが取得できませんでした（最大7日先まで対応しています）。", true);
+      resultEl.hidden = true;
+      return;
+    }
+    renderWeekStrip(dateStr);
     try {
-      const [forecast, marine] = await Promise.all([
-        fetchForecast(place.latitude, place.longitude),
-        fetchMarine(place.latitude, place.longitude),
-      ]);
+      const { temp, wind, gust, precip, wave, swell, waterTemp, windStatus, waveStatus, precipStatus } = day;
+      const overall = day.overall;
 
-      const dateStr = dateInput.value;
-      const times = forecast.hourly.time;
-      const dIdx = daytimeIndices(times, dateStr);
-      if (!dIdx.length) {
-        setStatus("この日付の予報データが取得できませんでした（最大7日先まで対応しています）。", true);
-        return;
-      }
+      const times = currentForecast.hourly.time;
+      const marine = currentMarine;
       const allDayIdx = dayIndices(times, dateStr);
-
-      const temp = stats(dIdx.map((i) => forecast.hourly.temperature_2m[i]));
-      const wind = stats(dIdx.map((i) => forecast.hourly.windspeed_10m[i]));
-      const gust = stats(dIdx.map((i) => forecast.hourly.windgusts_10m[i]));
-      const precip = stats(dIdx.map((i) => forecast.hourly.precipitation_probability[i]));
-      const codesInDay = dIdx.map((i) => forecast.hourly.weathercode[i]);
-      const hasThunder = codesInDay.some((c) => THUNDER_CODES.has(c));
-
-      let marineTimes = null, mIdx = [], wave = null, swell = null, waterTemp = null;
-      if (marine && marine.hourly) {
-        marineTimes = marine.hourly.time;
-        mIdx = daytimeIndices(marineTimes, dateStr);
-        if (mIdx.length) {
-          wave = stats(mIdx.map((i) => marine.hourly.wave_height[i]));
-          swell = stats(mIdx.map((i) => marine.hourly.swell_wave_height[i]));
-          waterTemp = stats(mIdx.map((i) => marine.hourly.sea_surface_temperature[i]));
-        }
-      }
-
-      const windStatus = classify(wind ? wind.max : null, THRESH.wind);
-      const waveStatus = wave ? classify(wave.max, THRESH.wave) : null;
-      const precipStatus = classify(precip ? precip.max : null, THRESH.precip);
-
-      const statuses = [windStatus, waveStatus, precipStatus].filter(Boolean);
-      let overall = statuses.reduce((worst, s) => STATUS_RANK[s] > STATUS_RANK[worst] ? s : worst, "good");
-      const reasons = [];
-      if (windStatus && windStatus !== "good") reasons.push(`風速 最大${fmt(wind.max)}m/s`);
-      if (waveStatus && waveStatus !== "good") reasons.push(`波高 最大${fmt(wave.max)}m`);
-      if (precipStatus && precipStatus !== "good") reasons.push(`降水確率 最大${Math.round(precip.max)}%`);
-      if (hasThunder) {
-        overall = "critical";
-        reasons.unshift("雷を伴う天気の可能性");
-      }
+      const marineTimes = marine && marine.hourly ? marine.hourly.time : null;
 
       $("verdict").className = `verdict ${overall}`;
       $("verdict-icon").innerHTML = svgIcon(STATUS_ICON[overall]);
-      $("verdict-place").textContent = `${place.name}${place.admin1 ? " / " + place.admin1 : ""}${place.country ? " / " + place.country : ""} — ${dateStr}`;
+      $("verdict-place").textContent = `${currentPlace.name}${currentPlace.admin1 ? " / " + currentPlace.admin1 : ""}${currentPlace.country ? " / " + currentPlace.country : ""} — ${dateStr}`;
       $("verdict-label").textContent = STATUS_LABEL[overall];
 
       const chipDefs = [
@@ -350,6 +420,15 @@
       const tiles = [];
       if (temp) {
         tiles.push({ icon: "thermometer", label: "気温 (6-18時)", value: `${fmt(temp.min, 0)}〜${fmt(temp.max, 0)}℃` });
+      }
+      if (precip) {
+        tiles.push({
+          icon: "droplet",
+          status: precipStatus,
+          label: "降水確率 (6-18時)",
+          value: `最大${Math.round(precip.max)}%`,
+          badge: badgeHTML(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" }),
+        });
       }
       if (wind) {
         tiles.push({
@@ -378,15 +457,6 @@
       if (waterTemp) {
         tiles.push({ icon: "thermometer", label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
       }
-      if (precip) {
-        tiles.push({
-          icon: "droplet",
-          status: precipStatus,
-          label: "降水確率 (6-18時)",
-          value: `最大${Math.round(precip.max)}%`,
-          badge: badgeHTML(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" }),
-        });
-      }
       renderTiles($("tiles"), tiles);
 
       // charts across full day (0-23) using allDayIdx (fallback to dIdx if not full)
@@ -401,7 +471,7 @@
         return pts;
       };
 
-      const windPoints = hourPoints(forecast.hourly.windspeed_10m, times, allDayIdx);
+      const windPoints = hourPoints(currentForecast.hourly.windspeed_10m, times, allDayIdx);
       buildChart($("wind-chart"), windPoints, "var(--series-blue)", THRESH.wind, "m/s");
 
       const waveWrap = $("wave-chart-wrap");
@@ -424,11 +494,11 @@
       for (let h = 6; h <= 18; h += 2) {
         const i = times.findIndex((t) => t === `${dateStr}T${String(h).padStart(2, "0")}:00`);
         if (i === -1) continue;
-        const code = forecast.hourly.weathercode[i];
+        const code = currentForecast.hourly.weathercode[i];
         const info = WEATHER_INFO[code] || ["cloud", "?"];
-        const w = forecast.hourly.windspeed_10m[i];
-        const t = forecast.hourly.temperature_2m[i];
-        const p = forecast.hourly.precipitation_probability[i];
+        const w = currentForecast.hourly.windspeed_10m[i];
+        const t = currentForecast.hourly.temperature_2m[i];
+        const p = currentForecast.hourly.precipitation_probability[i];
         let waveVal = null;
         if (marine && marineTimes) {
           const mi = marineTimes.findIndex((t2) => t2 === `${dateStr}T${String(h).padStart(2, "0")}:00`);
@@ -443,9 +513,11 @@
             ${svgIcon(info[0])}
             <div class="hour-weather-label">${info[1]}</div>
             <div class="hour-temp">${fmt(t, 0)}℃</div>
-            <div class="hour-metric status-${wStatus}">${svgIcon("wind")}${fmt(w)}m/s</div>
-            <div class="hour-metric">${svgIcon("waves")}${waveVal != null ? fmt(waveVal) + "m" : "-"}</div>
-            <div class="hour-metric status-${pStatus}">${svgIcon("droplet")}${Math.round(p)}%</div>
+            <div class="hour-metrics-grid">
+              <div class="hour-metric status-${pStatus}">${svgIcon("droplet")}<span>${Math.round(p)}%</span></div>
+              <div class="hour-metric status-${wStatus}">${svgIcon("wind")}<span>${fmt(w)}</span></div>
+              <div class="hour-metric">${svgIcon("waves")}<span>${waveVal != null ? fmt(waveVal) : "-"}</span></div>
+            </div>
           </div>
         `);
       }
@@ -456,6 +528,37 @@
     } catch (e) {
       console.error(e);
       setStatus("天気データの取得に失敗しました。しばらくしてから再度お試しください。", true);
+    }
+  }
+
+  const MAX_WEEK_DAYS = 7;
+
+  async function loadWeather(place) {
+    setStatus("天気データを取得中...");
+    resultEl.hidden = true;
+    try {
+      const [forecast, marine] = await Promise.all([
+        fetchForecast(place.latitude, place.longitude),
+        fetchMarine(place.latitude, place.longitude),
+      ]);
+      currentForecast = forecast;
+      currentMarine = marine;
+      currentPlace = place;
+
+      const dateSet = [];
+      forecast.hourly.time.forEach((t) => {
+        const d = t.slice(0, 10);
+        if (!dateSet.includes(d)) dateSet.push(d);
+      });
+      currentDays = dateSet.slice(0, MAX_WEEK_DAYS)
+        .map((d) => computeDaySummary(d))
+        .filter(Boolean);
+
+      renderForDate(dateInput.value);
+    } catch (e) {
+      console.error(e);
+      setStatus("天気データの取得に失敗しました。しばらくしてから再度お試しください。", true);
+      resultEl.hidden = true;
     }
   }
 

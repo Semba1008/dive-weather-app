@@ -592,22 +592,106 @@ h1, h2, .verdict-label, #search-btn {
   font-variant-numeric: tabular-nums;
   margin-bottom: 8px;
 }
+.hour-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
 .hour-metric {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 0.76rem;
+  gap: 2px;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-  margin-top: 3px;
 }
-.hour-metric .icon { width: 12px; height: 12px; margin-bottom: 0; color: var(--text-muted); }
+.hour-metric .icon { width: 13px; height: 13px; margin-bottom: 0; color: var(--text-muted); }
 .hour-metric.status-warning { color: #8a5a00; font-weight: 700; }
 .hour-metric.status-critical { color: var(--status-critical); font-weight: 700; }
 :root[data-theme="dark"] .hour-metric.status-warning { color: var(--status-warning); }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .hour-metric.status-warning { color: var(--status-warning); }
+}
+
+/* ---------- Weekly forecast ---------- */
+.week-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+  margin: 0 -2px;
+}
+.week-card {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: 108px;
+  background: var(--surface-page);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 8px 11px;
+  text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.week-card:hover { transform: translateY(-2px); border-color: var(--series-blue); }
+.week-card.is-selected { border-color: var(--series-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--series-blue) 25%, transparent); }
+.week-day {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.week-card .icon { width: 24px; height: 24px; color: var(--series-blue); margin-bottom: 4px; }
+.week-temp {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+.week-precip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+.week-precip .icon { width: 11px; height: 11px; }
+.week-score-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--gridline);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.week-score-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--baseline);
+}
+.week-card.status-good .week-score-fill     { background: var(--status-good); }
+.week-card.status-warning .week-score-fill  { background: var(--status-warning); }
+.week-card.status-critical .week-score-fill { background: var(--status-critical); }
+.week-score-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.week-card.status-good .week-score-label     { color: var(--status-good); }
+.week-card.status-warning .week-score-label  { color: #8a5a00; }
+.week-card.status-critical .week-score-label { color: var(--status-critical); }
+:root[data-theme="dark"] .week-card.status-warning .week-score-label { color: var(--status-warning); }
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .week-card.status-warning .week-score-label { color: var(--status-warning); }
 }
 
 /* ---------- Footer ---------- */
