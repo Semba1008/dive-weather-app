@@ -154,7 +154,7 @@
   function renderTiles(container, tiles) {
     container.innerHTML = tiles.map((t) => `
       <div class="tile">
-        <div class="tile-label">${t.label}</div>
+        <div class="tile-label">${t.icon ? `<span>${t.icon}</span>` : ""}${t.label}</div>
         <div class="tile-value">${t.value}</div>
         ${t.sub ? `<div class="tile-sub">${t.sub}</div>` : ""}
         ${t.badge || ""}
@@ -313,10 +313,11 @@
 
       const tiles = [];
       if (temp) {
-        tiles.push({ label: "気温 (6-18時)", value: `${fmt(temp.min, 0)}〜${fmt(temp.max, 0)}℃` });
+        tiles.push({ icon: "🌡️", label: "気温 (6-18時)", value: `${fmt(temp.min, 0)}〜${fmt(temp.max, 0)}℃` });
       }
       if (wind) {
         tiles.push({
+          icon: "💨",
           label: "風速 (6-18時)",
           value: `平均${fmt(wind.avg)} / 最大${fmt(wind.max)} m/s`,
           sub: gust ? `突風 最大${fmt(gust.max)} m/s` : null,
@@ -325,21 +326,23 @@
       }
       if (wave) {
         tiles.push({
+          icon: "🌊",
           label: "波高 (6-18時)",
           value: `平均${fmt(wave.avg)} / 最大${fmt(wave.max)} m`,
           badge: badgeHTML(waveStatus, { good: "穏やか", warning: "やや高い", critical: "高波注意" }),
         });
       } else {
-        tiles.push({ label: "波高", value: "データなし", sub: "内陸・湖沼の可能性があります" });
+        tiles.push({ icon: "🌊", label: "波高", value: "データなし", sub: "内陸・湖沼の可能性があります" });
       }
       if (swell) {
-        tiles.push({ label: "うねり", value: `平均${fmt(swell.avg)} m` });
+        tiles.push({ icon: "〰️", label: "うねり", value: `平均${fmt(swell.avg)} m` });
       }
       if (waterTemp) {
-        tiles.push({ label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
+        tiles.push({ icon: "🌡️", label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
       }
       if (precip) {
         tiles.push({
+          icon: "☔",
           label: "降水確率 (6-18時)",
           value: `最大${Math.round(precip.max)}%`,
           badge: badgeHTML(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" }),
@@ -438,6 +441,7 @@
     clearCandidates();
     resultEl.hidden = true;
     searchBtn.disabled = true;
+    searchBtn.classList.add("loading");
     setStatus("地点を検索中...");
     try {
       const results = await geocode(name);
@@ -457,6 +461,7 @@
       setStatus("地点検索に失敗しました。しばらくしてから再度お試しください。", true);
     } finally {
       searchBtn.disabled = false;
+      searchBtn.classList.remove("loading");
     }
   });
 })();
