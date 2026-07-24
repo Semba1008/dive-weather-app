@@ -46,7 +46,13 @@
       <button type="submit" id="search-btn"><span class="btn-label">検索する</span></button>
     </form>
 
-    <div class="favorites-row" id="favorites-row" hidden></div>
+    <div class="favorites-section" id="favorites-section" hidden>
+      <div class="favorites-label">
+        <svg class="icon icon-filled" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12,2.5 14.6,9.2 21.8,9.5 16.1,13.9 18.1,20.9 12,16.9 5.9,20.9 7.9,13.9 2.2,9.5 9.4,9.2"/></svg>
+        お気に入りの地点
+      </div>
+      <div class="favorites-row" id="favorites-row"></div>
+    </div>
 
     <div id="status-area" class="status-area" hidden></div>
 
@@ -66,7 +72,9 @@
         <div class="verdict-body">
           <div class="verdict-place-row">
             <div class="verdict-place" id="verdict-place"></div>
-            <button type="button" class="fav-btn" id="fav-btn" aria-label="お気に入りに追加"></button>
+            <button type="button" class="fav-btn" id="fav-btn" aria-label="お気に入りに追加">
+              <span class="fav-btn-icon"></span><span class="fav-btn-label"></span>
+            </button>
           </div>
           <div class="verdict-label" id="verdict-label"></div>
           <div class="verdict-chips" id="verdict-chips"></div>

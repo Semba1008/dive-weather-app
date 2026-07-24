@@ -109,22 +109,25 @@
     const btn = $("fav-btn");
     if (!currentPlace) { btn.innerHTML = ""; return; }
     const fav = isFavorited(currentPlace);
-    btn.innerHTML = svgIcon("star", fav ? "icon-filled" : "");
+    btn.querySelector(".fav-btn-icon").innerHTML = svgIcon("star", fav ? "icon-filled" : "");
+    btn.querySelector(".fav-btn-label").textContent = fav ? "お気に入り済み" : "お気に入りに追加";
     btn.classList.toggle("is-active", fav);
     btn.setAttribute("aria-label", fav ? "お気に入りから削除" : "お気に入りに追加");
   }
 
   function renderFavoritesRow() {
     const favs = loadFavorites();
+    const section = $("favorites-section");
     const row = $("favorites-row");
     if (!favs.length) {
-      row.hidden = true;
+      section.hidden = true;
       row.innerHTML = "";
       return;
     }
-    row.hidden = false;
+    section.hidden = false;
     row.innerHTML = favs.map((f, i) => `
       <button type="button" class="fav-chip" data-idx="${i}">
+        ${svgIcon("star", "icon-filled")}
         <span>${f.name}</span>
         <span class="fav-chip-remove" data-remove="${i}">${svgIcon("close")}</span>
       </button>
