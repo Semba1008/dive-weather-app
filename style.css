@@ -463,6 +463,8 @@ h1, h2, .verdict-label, #search-btn {
 .tiles .tile:nth-child(6) { animation-delay: 0.22s; }
 .tiles .tile:nth-child(7) { animation-delay: 0.26s; }
 .tiles .tile:nth-child(8) { animation-delay: 0.30s; }
+.tiles .tile:nth-child(9) { animation-delay: 0.34s; }
+.tiles .tile:nth-child(10) { animation-delay: 0.38s; }
 .tile {
   position: relative;
   background: var(--surface-1);

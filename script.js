@@ -5,11 +5,14 @@
   const FORECAST_DAYS = 8;
 
   const THRESH = {
-    wind: { good: 5, warn: 8 },       // m/s
-    wave: { good: 0.5, warn: 1.2 },   // m
-    precip: { good: 30, warn: 60 },   // %
+    wind: { good: 5, warn: 8 },         // m/s
+    wave: { good: 0.5, warn: 1.2 },     // m
+    precip: { good: 30, warn: 60 },     // %
+    waterTemp: { good: 22, warn: 18 },  // °C, lower is worse
   };
   const THUNDER_CODES = new Set([95, 96, 99]);
+  const FOG_CODES = new Set([45, 48]);
+  const COMPASS_LABELS = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
 
   const CLOUD_SHAPE = `<circle cx="9" cy="12.8" r="3.2"/><circle cx="13.2" cy="10.5" r="4"/><circle cx="16.4" cy="13" r="2.6"/><rect x="6" y="13" width="12.6" height="4.5" rx="2.25"/>`;
 
@@ -180,7 +183,14 @@
       if (value <= thresh.warn) return "warning";
       return "critical";
     }
-    return "good";
+    if (value >= thresh.good) return "good";
+    if (value >= thresh.warn) return "warning";
+    return "critical";
+  }
+
+  function compassLabel(deg) {
+    if (deg == null) return null;
+    return COMPASS_LABELS[Math.round(deg / 22.5) % 16];
   }
 
   const STATUS_RANK = { good: 0, warning: 1, critical: 2 };
@@ -189,11 +199,13 @@
   const STATUS_SCORE = { good: 95, warning: 55, critical: 15 };
   const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
-  function diveScore(windStatus, waveStatus, precipStatus, hasThunder) {
+  function diveScore(windStatus, waveStatus, precipStatus, waterTempStatus, visibilityStatus, hasThunder) {
     const parts = [];
-    if (windStatus) parts.push({ score: STATUS_SCORE[windStatus], weight: 0.35 });
-    if (waveStatus) parts.push({ score: STATUS_SCORE[waveStatus], weight: 0.35 });
-    if (precipStatus) parts.push({ score: STATUS_SCORE[precipStatus], weight: 0.3 });
+    if (windStatus) parts.push({ score: STATUS_SCORE[windStatus], weight: 0.25 });
+    if (waveStatus) parts.push({ score: STATUS_SCORE[waveStatus], weight: 0.25 });
+    if (precipStatus) parts.push({ score: STATUS_SCORE[precipStatus], weight: 0.2 });
+    if (waterTempStatus) parts.push({ score: STATUS_SCORE[waterTempStatus], weight: 0.15 });
+    if (visibilityStatus) parts.push({ score: STATUS_SCORE[visibilityStatus], weight: 0.15 });
     if (!parts.length) return null;
     const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
     let score = parts.reduce((s, p) => s + (p.score * p.weight) / totalWeight, 0);
@@ -233,7 +245,7 @@
     const params = new URLSearchParams({
       latitude: lat,
       longitude: lon,
-      hourly: "temperature_2m,precipitation_probability,weathercode,windspeed_10m,windgusts_10m",
+      hourly: "temperature_2m,precipitation_probability,weathercode,windspeed_10m,windgusts_10m,winddirection_10m",
       daily: "sunrise,sunset,uv_index_max",
       wind_speed_unit: "ms",
       timezone: "auto",
@@ -411,8 +423,10 @@
     const precip = stats(dIdx.map((i) => currentForecast.hourly.precipitation_probability[i]));
     const codesInDay = dIdx.map((i) => currentForecast.hourly.weathercode[i]);
     const hasThunder = codesInDay.some((c) => THUNDER_CODES.has(c));
+    const hasFog = codesInDay.some((c) => FOG_CODES.has(c));
     const noonIdx = times.findIndex((t) => t === `${dateStr}T12:00`);
     const repCode = noonIdx !== -1 ? currentForecast.hourly.weathercode[noonIdx] : codesInDay[Math.floor(codesInDay.length / 2)];
+    const windDir = noonIdx !== -1 ? currentForecast.hourly.winddirection_10m[noonIdx] : null;
 
     let wave = null, swell = null, waterTemp = null;
     if (currentMarine && currentMarine.hourly) {
@@ -427,10 +441,12 @@
     const windStatus = classify(wind ? wind.max : null, THRESH.wind);
     const waveStatus = wave ? classify(wave.max, THRESH.wave) : null;
     const precipStatus = classify(precip ? precip.max : null, THRESH.precip);
-    const statuses = [windStatus, waveStatus, precipStatus].filter(Boolean);
+    const waterTempStatus = waterTemp ? classify(waterTemp.avg, THRESH.waterTemp, false) : null;
+    const visibilityStatus = hasFog ? "warning" : "good";
+    const statuses = [windStatus, waveStatus, precipStatus, waterTempStatus, visibilityStatus].filter(Boolean);
     let overall = statuses.reduce((worst, s) => STATUS_RANK[s] > STATUS_RANK[worst] ? s : worst, "good");
     if (hasThunder) overall = "critical";
-    const score = diveScore(windStatus, waveStatus, precipStatus, hasThunder);
+    const score = diveScore(windStatus, waveStatus, precipStatus, waterTempStatus, visibilityStatus, hasThunder);
 
     let sunrise = null, sunset = null, uvMax = null;
     if (currentForecast.daily) {
@@ -443,8 +459,9 @@
     }
 
     return {
-      dateStr, temp, wind, gust, precip, hasThunder, repCode,
+      dateStr, temp, wind, gust, precip, hasThunder, hasFog, repCode, windDir,
       wave, swell, waterTemp, windStatus, waveStatus, precipStatus,
+      waterTempStatus, visibilityStatus,
       overall, score, sunrise, sunset, uvMax,
     };
   }
@@ -487,7 +504,11 @@
     }
     renderWeekStrip(dateStr);
     try {
-      const { temp, wind, gust, precip, wave, swell, waterTemp, windStatus, waveStatus, precipStatus, sunrise, sunset, uvMax } = day;
+      const {
+        temp, wind, gust, precip, wave, swell, waterTemp, windDir,
+        windStatus, waveStatus, precipStatus, waterTempStatus, visibilityStatus,
+        sunrise, sunset, uvMax,
+      } = day;
       const overall = day.overall;
 
       const times = currentForecast.hourly.time;
@@ -505,6 +526,8 @@
         windStatus && { status: windStatus, icon: "wind", text: `風速 ${badgeText(windStatus, { good: "良好", warning: "やや強め", critical: "危険" })}` },
         waveStatus && { status: waveStatus, icon: "waves", text: `波高 ${badgeText(waveStatus, { good: "穏やか", warning: "やや高い", critical: "高波注意" })}` },
         precipStatus && { status: precipStatus, icon: "droplet", text: `降水 ${badgeText(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" })}` },
+        waterTempStatus && { status: waterTempStatus, icon: "thermometer", text: `水温 ${badgeText(waterTempStatus, { good: "快適", warning: "やや冷たい", critical: "低水温" })}` },
+        visibilityStatus && { status: visibilityStatus, icon: "fog", text: `視界 ${badgeText(visibilityStatus, { good: "良好", warning: "霧の可能性", critical: "不良" })}` },
       ].filter(Boolean);
       $("verdict-chips").innerHTML = chipDefs.map((c) => `
         <span class="verdict-chip status-${c.status}">${svgIcon(c.icon)}${c.text}</span>
@@ -537,13 +560,23 @@
         });
       }
       if (wind) {
+        const dirLabel = windDir != null ? compassLabel(windDir) : null;
         tiles.push({
           icon: "wind",
           status: windStatus,
           label: "風速 (6-18時)",
           value: `平均${fmt(wind.avg)} / 最大${fmt(wind.max)} m/s`,
-          sub: gust ? `突風 最大${fmt(gust.max)} m/s` : null,
+          sub: [gust ? `突風 最大${fmt(gust.max)} m/s` : null, dirLabel ? `風向 ${dirLabel} (参考)` : null].filter(Boolean).join(" / ") || null,
           badge: badgeHTML(windStatus, { good: "良好", warning: "やや強め", critical: "危険" }),
+        });
+      }
+      if (visibilityStatus) {
+        tiles.push({
+          icon: "fog",
+          status: visibilityStatus,
+          label: "視界",
+          value: visibilityStatus === "good" ? "良好" : "霧の可能性あり",
+          badge: badgeHTML(visibilityStatus, { good: "良好", warning: "要注意", critical: "不良" }),
         });
       }
       if (wave) {
@@ -561,7 +594,13 @@
         tiles.push({ icon: "waves", label: "うねり", value: `平均${fmt(swell.avg)} m` });
       }
       if (waterTemp) {
-        tiles.push({ icon: "thermometer", label: "水温 (海面水温)", value: `約${fmt(waterTemp.avg, 1)}℃` });
+        tiles.push({
+          icon: "thermometer",
+          status: waterTempStatus,
+          label: "水温 (海面水温)",
+          value: `約${fmt(waterTemp.avg, 1)}℃`,
+          badge: badgeHTML(waterTempStatus, { good: "快適", warning: "やや冷たい", critical: "低水温・ドライスーツ推奨" }),
+        });
       }
       renderTiles($("tiles"), tiles);
 
