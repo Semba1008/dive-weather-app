@@ -249,6 +249,64 @@ h1, h2, .verdict-label, #search-btn {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Favorites ---------- */
+.favorites-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.fav-chip:hover { border-color: var(--series-blue); }
+.fav-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--text-muted);
+}
+.fav-chip-remove:hover { background: color-mix(in srgb, var(--status-critical) 15%, transparent); color: var(--status-critical); }
+.fav-chip-remove .icon { width: 10px; height: 10px; stroke-width: 2.4; }
+
+.verdict-place-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fav-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.fav-btn:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); transform: scale(1.08); }
+.fav-btn .icon { width: 18px; height: 18px; }
+.fav-btn.is-active { color: var(--status-warning); }
+
 /* ---------- Status / candidates ---------- */
 .status-area {
   padding: 13px 16px;
@@ -403,6 +461,8 @@ h1, h2, .verdict-label, #search-btn {
 .tiles .tile:nth-child(4) { animation-delay: 0.14s; }
 .tiles .tile:nth-child(5) { animation-delay: 0.18s; }
 .tiles .tile:nth-child(6) { animation-delay: 0.22s; }
+.tiles .tile:nth-child(7) { animation-delay: 0.26s; }
+.tiles .tile:nth-child(8) { animation-delay: 0.30s; }
 .tile {
   position: relative;
   background: var(--surface-1);

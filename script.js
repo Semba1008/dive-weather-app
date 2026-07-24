@@ -28,6 +28,8 @@
     checkCircle: `<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6 5-5.6"/>`,
     alertTriangle: `<path d="M12 3.3l9.3 16.4h-18.6z" stroke-linejoin="round"/><line x1="12" y1="9.7" x2="12" y2="14.3"/><circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none"/>`,
     alertCircle: `<circle cx="12" cy="12" r="9"/><line x1="12" y1="7.3" x2="12" y2="13"/><circle cx="12" cy="16.2" r="0.9" fill="currentColor" stroke="none"/>`,
+    star: `<polygon points="12,2.5 14.6,9.2 21.8,9.5 16.1,13.9 18.1,20.9 12,16.9 5.9,20.9 7.9,13.9 2.2,9.5 9.4,9.2"/>`,
+    close: `<line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/>`,
   };
   const FILLED_ICONS = new Set(["sun", "cloud", "cloudSun", "fog", "cloudRain", "cloudSnow", "cloudLightning", "thermometer", "droplet"]);
 
@@ -62,6 +64,85 @@
   let currentMarine = null;
   let currentPlace = null;
   let currentDays = [];
+
+  const FAVORITES_KEY = "diveWeatherFavorites";
+
+  function loadFavorites() {
+    try {
+      const list = JSON.parse(localStorage.getItem(FAVORITES_KEY));
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveFavorites(list) {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(list));
+  }
+
+  function favKey(place) {
+    return `${place.latitude.toFixed(3)},${place.longitude.toFixed(3)}`;
+  }
+
+  function isFavorited(place) {
+    return loadFavorites().some((f) => favKey(f) === favKey(place));
+  }
+
+  function toggleFavorite(place) {
+    const list = loadFavorites();
+    const key = favKey(place);
+    const idx = list.findIndex((f) => favKey(f) === key);
+    if (idx === -1) {
+      list.push({ name: place.name, admin1: place.admin1, country: place.country, latitude: place.latitude, longitude: place.longitude });
+    } else {
+      list.splice(idx, 1);
+    }
+    saveFavorites(list);
+    renderFavoritesRow();
+    updateFavButton();
+  }
+
+  function updateFavButton() {
+    const btn = $("fav-btn");
+    if (!currentPlace) { btn.innerHTML = ""; return; }
+    const fav = isFavorited(currentPlace);
+    btn.innerHTML = svgIcon("star", fav ? "icon-filled" : "");
+    btn.classList.toggle("is-active", fav);
+    btn.setAttribute("aria-label", fav ? "お気に入りから削除" : "お気に入りに追加");
+  }
+
+  function renderFavoritesRow() {
+    const favs = loadFavorites();
+    const row = $("favorites-row");
+    if (!favs.length) {
+      row.hidden = true;
+      row.innerHTML = "";
+      return;
+    }
+    row.hidden = false;
+    row.innerHTML = favs.map((f, i) => `
+      <button type="button" class="fav-chip" data-idx="${i}">
+        <span>${f.name}</span>
+        <span class="fav-chip-remove" data-remove="${i}">${svgIcon("close")}</span>
+      </button>
+    `).join("");
+    row.querySelectorAll(".fav-chip").forEach((chip) => {
+      chip.addEventListener("click", (e) => {
+        const idx = Number(chip.dataset.idx);
+        if (e.target.closest("[data-remove]")) {
+          e.stopPropagation();
+          const list = loadFavorites();
+          list.splice(idx, 1);
+          saveFavorites(list);
+          renderFavoritesRow();
+          updateFavButton();
+          return;
+        }
+        clearCandidates();
+        loadWeather(favs[idx]);
+      });
+    });
+  }
 
   function todayLocalISO(offsetDays = 0) {
     const d = new Date();
@@ -153,6 +234,7 @@
       latitude: lat,
       longitude: lon,
       hourly: "temperature_2m,precipitation_probability,weathercode,windspeed_10m,windgusts_10m",
+      daily: "sunrise,sunset,uv_index_max",
       wind_speed_unit: "ms",
       timezone: "auto",
       forecast_days: String(FORECAST_DAYS),
@@ -350,10 +432,20 @@
     if (hasThunder) overall = "critical";
     const score = diveScore(windStatus, waveStatus, precipStatus, hasThunder);
 
+    let sunrise = null, sunset = null, uvMax = null;
+    if (currentForecast.daily) {
+      const dailyIdx = currentForecast.daily.time.indexOf(dateStr);
+      if (dailyIdx !== -1) {
+        sunrise = currentForecast.daily.sunrise[dailyIdx].slice(11, 16);
+        sunset = currentForecast.daily.sunset[dailyIdx].slice(11, 16);
+        uvMax = currentForecast.daily.uv_index_max[dailyIdx];
+      }
+    }
+
     return {
       dateStr, temp, wind, gust, precip, hasThunder, repCode,
       wave, swell, waterTemp, windStatus, waveStatus, precipStatus,
-      overall, score,
+      overall, score, sunrise, sunset, uvMax,
     };
   }
 
@@ -395,7 +487,7 @@
     }
     renderWeekStrip(dateStr);
     try {
-      const { temp, wind, gust, precip, wave, swell, waterTemp, windStatus, waveStatus, precipStatus } = day;
+      const { temp, wind, gust, precip, wave, swell, waterTemp, windStatus, waveStatus, precipStatus, sunrise, sunset, uvMax } = day;
       const overall = day.overall;
 
       const times = currentForecast.hourly.time;
@@ -407,6 +499,7 @@
       $("verdict-icon").innerHTML = svgIcon(STATUS_ICON[overall]);
       $("verdict-place").textContent = `${currentPlace.name}${currentPlace.admin1 ? " / " + currentPlace.admin1 : ""}${currentPlace.country ? " / " + currentPlace.country : ""} — ${dateStr}`;
       $("verdict-label").textContent = STATUS_LABEL[overall];
+      updateFavButton();
 
       const chipDefs = [
         windStatus && { status: windStatus, icon: "wind", text: `風速 ${badgeText(windStatus, { good: "良好", warning: "やや強め", critical: "危険" })}` },
@@ -428,6 +521,19 @@
           label: "降水確率 (6-18時)",
           value: `最大${Math.round(precip.max)}%`,
           badge: badgeHTML(precipStatus, { good: "低い", warning: "やや高い", critical: "高い" }),
+        });
+      }
+      if (sunrise && sunset) {
+        tiles.push({ icon: "sun", label: "日の出・日の入り", value: `${sunrise} / ${sunset}` });
+      }
+      if (uvMax != null) {
+        const uvStatus = uvMax >= 8 ? "critical" : uvMax >= 6 ? "warning" : "good";
+        tiles.push({
+          icon: "sun",
+          status: uvStatus,
+          label: "UV指数",
+          value: fmt(uvMax, 1),
+          badge: badgeHTML(uvStatus, { good: "低め〜中程度", warning: "高い", critical: "非常に強い" }),
         });
       }
       if (wind) {
@@ -579,6 +685,11 @@
       });
     });
   }
+
+  $("fav-btn").addEventListener("click", () => {
+    if (currentPlace) toggleFavorite(currentPlace);
+  });
+  renderFavoritesRow();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
